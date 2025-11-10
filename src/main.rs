@@ -1,20 +1,9 @@
-use actix_web::{App, HttpRequest, HttpServer, Responder, web};
+use zero2prod::run;
 
 
-async fn greet(req: HttpRequest) -> impl Responder {
-	let name = req.match_info().get("name").unwrap_or("world");
-	format!("Hello {}", name)
-}
-
-
-#[tokio::main]
+#[actix_web::main]
 async fn main() -> std::io::Result<()> {
-	HttpServer::new(|| {
-		App::new()
-			.route("/", web::get().to(greet))
-			.route("/{name}", web::get().to(greet))
-	})
-	.bind("localhost:8000")?
-	.run()
-	.await
+	let listener = std::net::TcpListener::bind("localhost:8000")?;
+	
+	run(listener)?.await
 }
