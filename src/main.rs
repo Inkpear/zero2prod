@@ -1,7 +1,6 @@
-use sqlx::PgPool;
 use zero2prod::{
     configuration::get_configuration,
-    startup::run,
+    startup::Application,
     telemetry::{get_subscriber, init_subscriber},
 };
 
@@ -11,14 +10,10 @@ async fn main() -> std::io::Result<()> {
     init_subscriber(subscriber);
 
     let configuration = get_configuration().expect("Failed to read configuration.");
-    let connection_pool =
-        PgPool::connect_lazy_with(configuration.database.with_db());
 
-    let address = format!(
-        "{}:{}",
-        configuration.application.host, configuration.application.port
-    );
-    let listener = std::net::TcpListener::bind(address)?;
+    let application = Application::build(configuration).await?;
 
-    run(listener, connection_pool)?.await
+    application.run_until_stopped().await?;
+
+    Ok(())
 }

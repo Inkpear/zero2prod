@@ -7,3 +7,9 @@ database:
 
 application:
   port: 8000
+
+email_client:
+  base_url: "http://localhost"
+  sender_email: "newsletter@example.com"
+  authorization_token: "my-secret-token"
+  timeout_milliseconds: 10000

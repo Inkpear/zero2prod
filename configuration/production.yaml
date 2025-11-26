@@ -3,3 +3,7 @@ application:
   
 database:
   require_ssl: true
+  
+email_client:
+  base_url: "https://gz-smtp.qcloudmail.com"
+  sender_email: "Inkpear@mail.cqwuc204.top"
