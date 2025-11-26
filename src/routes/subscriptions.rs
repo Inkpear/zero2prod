@@ -136,7 +136,7 @@ pub async fn insert_subscriber(
     skip(transaction, subscription_token)
 )]
 pub async fn store_token(
-	transaction: &mut Transaction<'_, Postgres>,
+    transaction: &mut Transaction<'_, Postgres>,
     subscriber_id: Uuid,
     subscription_token: &str,
 ) -> Result<(), sqlx::Error> {
