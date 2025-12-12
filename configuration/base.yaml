@@ -6,6 +6,7 @@ database:
   database_name: "newsletter"
 
 application:
+  hmac_secret: "super-long-and-secret-random-key-needed-to-verify-messge-integrity"
   port: 8000
 
 email_client:
