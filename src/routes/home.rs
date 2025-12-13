@@ -1,5 +1,3 @@
-use actix_web::HttpResponse;
+mod get;
 
-pub async fn home() -> HttpResponse {
-    HttpResponse::Ok().body(include_str!("./home/home.html"))
-}
+pub use get::home;

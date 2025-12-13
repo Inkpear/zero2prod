@@ -28,6 +28,7 @@ pub struct TestApp {
     pub db_pool: PgPool,
     pub email_server: MockServer,
     pub test_user: TestUser,
+    pub api_client: reqwest::Client,
 }
 
 pub struct ConfirmationLinks {
@@ -43,7 +44,7 @@ pub struct TestUser {
 
 impl TestApp {
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
-        reqwest::Client::new()
+        self.api_client
             .post(&format!("{}/subscriptions", self.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(body)
@@ -75,13 +76,36 @@ impl TestApp {
     }
 
     pub async fn post_newsletters(&self, body: serde_json::Value) -> reqwest::Response {
-        reqwest::Client::new()
+        self.api_client
             .post(&format!("{}/newsletters", self.address))
             .basic_auth(&self.test_user.username, Some(&self.test_user.password))
             .json(&body)
             .send()
             .await
             .expect("Failed to execute requests.")
+    }
+
+    pub async fn post_login<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .post(&format!("{}/login", &self.address))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to to execute request.")
+    }
+
+    pub async fn get_login_html(&self) -> String {
+        self.api_client
+            .get(&format!("{}/login", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute request.")
+            .text()
+            .await
+            .unwrap()
     }
 }
 
@@ -98,6 +122,12 @@ pub async fn spawn_app() -> TestApp {
             reqwest::Url::parse(&email_server.uri()).expect("Failed to parse email server URI");
         c
     };
+
+    let api_client = reqwest::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .cookie_store(true)
+        .build()
+        .unwrap();
 
     let db_pool = configure_database(&configuration.database).await;
 
@@ -124,6 +154,7 @@ pub async fn spawn_app() -> TestApp {
         db_pool,
         email_server,
         test_user,
+        api_client,
     }
 }
 
@@ -176,4 +207,9 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to migrate database");
 
     connection_pool
+}
+
+pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str) {
+    assert_eq!(response.status().as_u16(), 303);
+    assert_eq!(response.headers().get("Location").unwrap(), location);
 }
