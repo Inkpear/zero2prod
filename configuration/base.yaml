@@ -14,3 +14,5 @@ email_client:
   sender_email: "newsletter@example.com"
   authorization_token: "my-secret-token"
   timeout_milliseconds: 10000
+
+redis_uri: "redis://192.168.31.199:6379"

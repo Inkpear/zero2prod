@@ -1,5 +1,6 @@
 use std::net::TcpListener;
 
+use actix_session::{SessionMiddleware, storage::RedisSessionStore};
 use actix_web::{App, HttpServer, cookie::Key, dev::Server, web};
 use actix_web_flash_messages::{FlashMessagesFramework, storage::CookieMessageStore};
 use secrecy::{ExposeSecret, Secret};
@@ -9,32 +10,35 @@ use tracing_actix_web::TracingLogger;
 use crate::{
     configuration::{DatabaseSettings, Settings},
     email_client::EmailClient,
-    routes::{confirm, health_check, home, login, login_form, publish_newsletter, subscribe},
+    routes::{admin_dashboard, confirm, health_check, home, login, login_form, publish_newsletter, subscribe},
 };
 
 pub struct ApplicationBaseUrl(pub String);
 
 pub struct HmacSecret(pub Secret<String>);
 
-pub fn run(
+pub async fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
     base_url: String,
     hmac_secret: Secret<String>,
-) -> Result<Server, std::io::Error> {
+    redis_uri:  Secret<String>
+) -> Result<Server, anyhow::Error> {
     let db_pool = web::Data::new(db_pool);
     let email_client = web::Data::new(email_client);
     let base_url = web::Data::new(ApplicationBaseUrl(base_url));
-    let hmac_secret = web::Data::new(HmacSecret(hmac_secret));
-    let message_store =
-        CookieMessageStore::builder(Key::from(hmac_secret.0.expose_secret().as_bytes())).build();
+    let hmac_secret = HmacSecret(hmac_secret);
+    let secret_key = Key::from(hmac_secret.0.expose_secret().as_bytes());
+    let message_store = CookieMessageStore::builder(secret_key.clone()).build();
     let message_framework = FlashMessagesFramework::builder(message_store).build();
+    let redis_store = RedisSessionStore::new(redis_uri.expose_secret()).await?;
 
     let server = HttpServer::new(move || {
         App::new()
-            .wrap(TracingLogger::default())
             .wrap(message_framework.clone())
+            .wrap(TracingLogger::default())
+            .wrap(SessionMiddleware::new(redis_store.clone(), secret_key.clone()))
             .route("/health_check", web::get().to(health_check))
             .route("/subscriptions", web::post().to(subscribe))
             .route("/subscriptions/confirm", web::get().to(confirm))
@@ -42,10 +46,10 @@ pub fn run(
             .route("/", web::get().to(home))
             .route("/login", web::get().to(login_form))
             .route("/login", web::post().to(login))
+            .route("/admin/dashboard", web::get().to(admin_dashboard))
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
             .app_data(base_url.clone())
-            .app_data(hmac_secret.clone())
     })
     .listen(listener)?
     .run();
@@ -65,7 +69,7 @@ pub struct Application {
 }
 
 impl Application {
-    pub async fn build(configuration: Settings) -> Result<Self, std::io::Error> {
+    pub async fn build(configuration: Settings) -> Result<Self, anyhow::Error> {
         let connection_pool = get_connection_pool(&configuration.database);
 
         let sender_email = configuration
@@ -94,7 +98,8 @@ impl Application {
             email_client,
             configuration.application.base_url,
             configuration.application.hmac_secret,
-        )?;
+            configuration.redis_uri
+        ).await?;
 
         Ok(Self { port, server })
     }

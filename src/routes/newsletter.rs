@@ -9,7 +9,10 @@ use secrecy::Secret;
 use sqlx::PgPool;
 
 use crate::{
-    authentication::{AuthError, Credentials, validate_credentials}, domain::SubscriberEmail, email_client::EmailClient, routes::error_chain_fmt
+    authentication::{AuthError, Credentials, validate_credentials},
+    domain::SubscriberEmail,
+    email_client::EmailClient,
+    routes::error_chain_fmt,
 };
 
 #[derive(serde::Deserialize)]
@@ -60,8 +63,6 @@ impl ResponseError for PublishError {
     }
 }
 
-
-
 #[tracing::instrument(
     name = "Publish a newsletter issue",
     skip(body, pool, email_client, request),
@@ -76,11 +77,12 @@ pub async fn publish_newsletter(
     let subscribers = get_confirmed_subscribers(&pool).await?;
     let credentials = basic_authentication(request.headers()).map_err(PublishError::AuthError)?;
     tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
-    let user_id = validate_credentials(credentials, &pool).await
-    .map_err(|e| match e {
-        AuthError::InvalidCredentials(_) => PublishError::AuthError(e.into()),
-        AuthError::UnexpectedError(_) => PublishError::UnexpectedError(e.into())
-    })?;
+    let user_id = validate_credentials(credentials, &pool)
+        .await
+        .map_err(|e| match e {
+            AuthError::InvalidCredentials(_) => PublishError::AuthError(e.into()),
+            AuthError::UnexpectedError(_) => PublishError::UnexpectedError(e.into()),
+        })?;
     tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
     for subscriber in subscribers {

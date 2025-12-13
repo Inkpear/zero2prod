@@ -1,6 +1,7 @@
 use actix_web::error::InternalError;
 use actix_web::http::header::LOCATION;
 use actix_web::{HttpResponse, web};
+use actix_web_flash_messages::FlashMessage;
 use secrecy::Secret;
 use sqlx::PgPool;
 
@@ -34,7 +35,6 @@ impl std::fmt::Debug for LoginError {
 pub async fn login(
     form: web::Form<FormData>,
     pool: web::Data<PgPool>,
-    // secret: web::Data<HmacSecret>,
 ) -> Result<HttpResponse, InternalError<LoginError>> {
     let credentials = Credentials {
         username: form.0.username,
@@ -43,9 +43,9 @@ pub async fn login(
     tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
     match validate_credentials(credentials, &pool).await {
         Ok(user_id) => {
-            tracing::Span::current().record("user_Id", &tracing::field::display(&user_id));
+            tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
             Ok(HttpResponse::SeeOther()
-                .insert_header((LOCATION, "/"))
+                .insert_header((LOCATION, "/admin/dashboard"))
                 .finish())
         }
         Err(e) => {
@@ -53,6 +53,7 @@ pub async fn login(
                 AuthError::InvalidCredentials(_) => LoginError::AuthError(e.into()),
                 AuthError::UnexpectedError(_) => LoginError::UnexpectedError(e.into()),
             };
+            FlashMessage::error(e.to_string()).send();
             let response = HttpResponse::SeeOther()
                 .insert_header((LOCATION, format!("/login",)))
                 .finish();
