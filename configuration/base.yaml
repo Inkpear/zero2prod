@@ -1,5 +1,5 @@
 database:
-  host: "localhost"
+  host: "192.168.31.199"
   port: 5432
   username: "postgres"
   password: "password"
@@ -15,4 +15,4 @@ email_client:
   authorization_token: "my-secret-token"
   timeout_milliseconds: 10000
 
-redis_uri: "redis://192.168.31.199:6379"
+redis_uri: "redis://:admin123@192.168.31.199:6379"

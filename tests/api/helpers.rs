@@ -184,7 +184,6 @@ impl TestUser {
             .hash_password(self.password.as_bytes(), &salt)
             .unwrap()
             .to_string();
-
         sqlx::query!(
             "INSERT INTO users (user_id, username, password_hash)
             VALUES ($1, $2, $3)",
